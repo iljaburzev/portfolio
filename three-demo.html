@@ -14,7 +14,6 @@
   </style>
 </head>
 <body>
-  github 01
   <!-- Load Three.js and GLTFLoader from your Cargo-hosted files -->
   <script src="https://files.cargocollective.com/c390363/three.min.js"></script>
   <script src="https://files.cargocollective.com/c390363/GLTFLoader.js"></script>
@@ -23,12 +22,12 @@
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(
       75,
-      window.innerWidth / window.innerHeight,
+      window.innerWidth/window.innerHeight,
       0.1,
       1000
     );
-    // Move the camera a bit further back
-    camera.position.z = 7;
+    // Move camera back to provide room.
+    camera.position.set(0, 0, 7);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -44,24 +43,18 @@
         varying vec2 vUv;
         void main(){
           vUv = uv;
-          gl_Position = vec4( position, 1.0 );
+          gl_Position = vec4(position, 1.0);
         }
       `,
       fragmentShader: `
         uniform float uTime;
         varying vec2 vUv;
         void main(){
-          // Define two base colors.
           vec3 colorA = vec3(0.2, 0.0, 0.8);  // purple-ish
           vec3 colorB = vec3(0.8, 0.0, 0.2);  // reddish
-
-          // Create a time-based factor that oscillates between 0 and 1.
           float t = 0.5 + 0.5 * sin(uTime * 0.5);
           vec3 baseColor = mix(colorA, colorB, t);
-          
-          // Add a vertical gradient effect based on the vUv.y coordinate.
           vec3 finalColor = mix(baseColor * 0.5, baseColor, vUv.y);
-          
           gl_FragColor = vec4(finalColor, 1.0);
         }
       `,
@@ -104,10 +97,10 @@
       const geometry = new THREE.BoxGeometry(1, 1, 1);
       const material = new THREE.MeshStandardMaterial({ color: 0xff00ff });
       rotatingCube = new THREE.Mesh(geometry, material);
-      // Scale down the cube to make it smaller.
+      // Scale down the cube.
       rotatingCube.scale.set(0.5, 0.5, 0.5);
-      // Set its initial position further away.
-      rotatingCube.position.set(3, 0, 0);
+      // Initially place it at z=6.
+      rotatingCube.position.set(0, 0, 6);
       scene.add(rotatingCube);
     })();
 
@@ -125,26 +118,36 @@
       mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
     });
 
+    // --- Function to get world position at fixed z (6) from mouse NDC ---
+    function getMouseWorldPosition(zPlane) {
+      const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5);
+      vector.unproject(camera);
+      const dir = vector.sub(camera.position).normalize();
+      const distance = (zPlane - camera.position.z) / dir.z;
+      return camera.position.clone().add(dir.multiplyScalar(distance));
+    }
+
     // --- Animation Loop ---
     function animate() {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
 
-      // Update the gradient background's time uniform.
+      // Update the gradient background.
       bgMaterial.uniforms.uTime.value += delta;
 
       // Update moving cube animation if available.
       if (mixer) mixer.update(delta);
 
-      // Update the rotating cube: rotate and move toward mouse.
+      // Update the rotating cube: rotate and follow the mouse.
       if (rotatingCube) {
         rotatingCube.rotation.x += 0.01;
         rotatingCube.rotation.y += 0.01;
-        // Convert mouse position (NDC) to world coordinates.
-        const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5);
-        vector.unproject(camera);
-        // Smooth the movement with linear interpolation.
-        rotatingCube.position.lerp(vector, 0.1);
+        // Get world position on the plane at z=6.
+        const targetPos = getMouseWorldPosition(6);
+        // Smoothly interpolate position (x,y) toward target. z remains fixed.
+        rotatingCube.position.x = THREE.MathUtils.lerp(rotatingCube.position.x, targetPos.x, 0.1);
+        rotatingCube.position.y = THREE.MathUtils.lerp(rotatingCube.position.y, targetPos.y, 0.1);
+        rotatingCube.position.z = 6;
       }
 
       renderer.render(scene, camera);
