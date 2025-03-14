@@ -16,7 +16,7 @@
 </head>
 <body>
   <!-- Debug Label -->
-  <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">github 17</div>
+  <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">github 18</div>
   <script src="https://files.cargocollective.com/c390363/three.min.js"></script>
   <script src="https://files.cargocollective.com/c390363/GLTFLoader.js"></script>
   <script>
@@ -51,20 +51,34 @@
     let actionAni1 = null, actionAni2 = null, currentAction = null;
     const transitionDuration = 0.5; // seconds
 
+    // Helper: Create an action once mixer is available.
+    function createAction(animationClip, callback) {
+      if (mixer) {
+        const action = mixer.clipAction(animationClip);
+        action.setLoop(THREE.LoopRepeat, Infinity);
+        // We'll store a flag on userData to indicate if this action has been started.
+        action.userData.started = false;
+        callback(action);
+      } else {
+        const interval = setInterval(() => {
+          if (mixer) {
+            const action = mixer.clipAction(animationClip);
+            action.setLoop(THREE.LoopRepeat, Infinity);
+            action.userData.started = false;
+            clearInterval(interval);
+            callback(action);
+          }
+        }, 100);
+      }
+    }
+
     // Load Animation 1 (no autoplay)
     loader.load('https://files.cargocollective.com/c390363/MainCube_Ani_01.gltf', function(gltf) {
       if (gltf.animations.length > 0) {
-        const createAction = () => {
-          actionAni1 = mixer.clipAction(gltf.animations[0]);
-          actionAni1.setLoop(THREE.LoopRepeat, Infinity);
+        createAction(gltf.animations[0], function(action) {
+          actionAni1 = action;
           console.log("Animation 1 action ready.");
-        };
-        if (mixer) createAction();
-        else {
-          const interval = setInterval(() => {
-            if (mixer) { createAction(); clearInterval(interval); }
-          }, 100);
-        }
+        });
       }
     }, undefined, function(error) {
       console.error("Error loading Animation 1:", error);
@@ -73,17 +87,10 @@
     // Load Animation 2 (no autoplay)
     loader.load('https://files.cargocollective.com/c390363/MainCube_Ani_03.gltf', function(gltf) {
       if (gltf.animations.length > 0) {
-        const createAction = () => {
-          actionAni2 = mixer.clipAction(gltf.animations[0]);
-          actionAni2.setLoop(THREE.LoopRepeat, Infinity);
+        createAction(gltf.animations[0], function(action) {
+          actionAni2 = action;
           console.log("Animation 2 action ready.");
-        };
-        if (mixer) createAction();
-        else {
-          const interval = setInterval(() => {
-            if (mixer) { createAction(); clearInterval(interval); }
-          }, 100);
-        }
+        });
       }
     }, undefined, function(error) {
       console.error("Error loading Animation 2:", error);
@@ -103,22 +110,30 @@
           console.warn("Requested animation not ready:", animKey);
           return;
         }
-        // If no animation is playing yet, simply start the new action.
+        // If no animation is playing yet, start the new action.
         if (!currentAction) {
+          // If the action hasn't been started before, reset it first.
+          if (!newAction.userData.started) {
+            newAction.reset();
+            newAction.userData.started = true;
+          }
           newAction.play();
           currentAction = newAction;
           console.log("Started animation", animKey);
         }
-        // If switching animations, cross-fade from current to new.
+        // If switching animations, crossfade from current to new.
         else if (currentAction !== newAction) {
-          // Make sure the new action is playing.
+          if (!newAction.userData.started) {
+            newAction.reset();
+            newAction.userData.started = true;
+          }
+          // Ensure the new action is playing.
           newAction.play();
-          // Smoothly crossfade from the current action to the new one.
           currentAction.crossFadeTo(newAction, transitionDuration, false);
           currentAction = newAction;
           console.log("Switched to animation", animKey);
         }
-        // If the same animation is requested, do nothing.
+        // If the same animation button is clicked, do nothing.
         else {
           console.log("Animation already playing:", animKey);
         }
