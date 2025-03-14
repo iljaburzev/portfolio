@@ -1,3 +1,9 @@
+{ type: "playAnimation", animation: "ani2" }
+```)
+
+Try this code:
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -16,7 +22,7 @@
 </head>
 <body>
   <!-- Debug Label -->
-  <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">github 18</div>
+  <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">Github 19</div>
   <script src="https://files.cargocollective.com/c390363/three.min.js"></script>
   <script src="https://files.cargocollective.com/c390363/GLTFLoader.js"></script>
   <script>
@@ -24,114 +30,114 @@
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 0, 8);
-
+    
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
-
+    
     // --- Lighting ---
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
     directionalLight.position.set(0, 1, 1);
     scene.add(directionalLight);
-
-    // --- Main Cube & Animation Mixer ---
+    
+    // --- Global Variables ---
     let mainCube, mixer;
     const loader = new THREE.GLTFLoader();
+    
+    // Load the main cube model and create the AnimationMixer.
     loader.load('https://files.cargocollective.com/c390363/MainCube_01.gltf', function(gltf) {
       mainCube = gltf.scene;
       scene.add(mainCube);
       mixer = new THREE.AnimationMixer(mainCube);
+      console.log("Main cube loaded, mixer created.");
     }, undefined, function(error) {
       console.error("Error loading main cube:", error);
     });
-
-    // --- Persistent Animation Actions (no autoplay) ---
+    
+    // --- Persistent Animation Actions ---
     let actionAni1 = null, actionAni2 = null, currentAction = null;
     const transitionDuration = 0.5; // seconds
-
-    // Helper: Create an action once mixer is available.
-    function createAction(animationClip, callback) {
-      if (mixer) {
-        const action = mixer.clipAction(animationClip);
-        action.setLoop(THREE.LoopRepeat, Infinity);
-        // We'll store a flag on userData to indicate if this action has been started.
-        action.userData.started = false;
-        callback(action);
-      } else {
-        const interval = setInterval(() => {
-          if (mixer) {
-            const action = mixer.clipAction(animationClip);
-            action.setLoop(THREE.LoopRepeat, Infinity);
-            action.userData.started = false;
-            clearInterval(interval);
-            callback(action);
-          }
-        }, 100);
+    
+    // Utility to create a persistent action once the mixer is available.
+    function createPersistentAction(clip, callback) {
+      function tryCreate() {
+        if (mixer) {
+          const action = mixer.clipAction(clip);
+          action.setLoop(THREE.LoopRepeat, Infinity);
+          // Start in paused state.
+          action.paused = true;
+          // Flag to check if we have started the action before.
+          action.userData.started = false;
+          callback(action);
+        } else {
+          setTimeout(tryCreate, 100);
+        }
       }
+      tryCreate();
     }
-
-    // Load Animation 1 (no autoplay)
+    
+    // Load Animation 1
     loader.load('https://files.cargocollective.com/c390363/MainCube_Ani_01.gltf', function(gltf) {
       if (gltf.animations.length > 0) {
-        createAction(gltf.animations[0], function(action) {
+        createPersistentAction(gltf.animations[0], function(action) {
           actionAni1 = action;
-          console.log("Animation 1 action ready.");
+          console.log("Animation 1 action created.");
         });
       }
     }, undefined, function(error) {
       console.error("Error loading Animation 1:", error);
     });
-
-    // Load Animation 2 (no autoplay)
+    
+    // Load Animation 2
     loader.load('https://files.cargocollective.com/c390363/MainCube_Ani_03.gltf', function(gltf) {
       if (gltf.animations.length > 0) {
-        createAction(gltf.animations[0], function(action) {
+        createPersistentAction(gltf.animations[0], function(action) {
           actionAni2 = action;
-          console.log("Animation 2 action ready.");
+          console.log("Animation 2 action created.");
         });
       }
     }, undefined, function(error) {
       console.error("Error loading Animation 2:", error);
     });
-
+    
     // --- Message Listener for Switching Animations ---
     window.addEventListener("message", function(event) {
       if (event.data && event.data.type === "playAnimation") {
         const animKey = event.data.animation;
         let newAction = null;
-        if (animKey === "ani1") {
-          newAction = actionAni1;
-        } else if (animKey === "ani2") {
-          newAction = actionAni2;
-        }
+        if (animKey === "ani1") newAction = actionAni1;
+        else if (animKey === "ani2") newAction = actionAni2;
         if (!newAction) {
-          console.warn("Requested animation not ready:", animKey);
+          console.warn("Animation action not ready for key:", animKey);
           return;
         }
+        console.log("Received playAnimation for:", animKey);
+    
         // If no animation is playing yet, start the new action.
         if (!currentAction) {
-          // If the action hasn't been started before, reset it first.
           if (!newAction.userData.started) {
-            newAction.reset();
+            newAction.reset(); // start from beginning
             newAction.userData.started = true;
           }
+          newAction.paused = false;
           newAction.play();
           currentAction = newAction;
-          console.log("Started animation", animKey);
+          console.log("Started animation:", animKey);
         }
-        // If switching animations, crossfade from current to new.
+        // If switching animations, crossfade.
         else if (currentAction !== newAction) {
           if (!newAction.userData.started) {
             newAction.reset();
             newAction.userData.started = true;
           }
-          // Ensure the new action is playing.
+          newAction.paused = false;
           newAction.play();
+          // Crossfade from current action to new action.
           currentAction.crossFadeTo(newAction, transitionDuration, false);
           currentAction = newAction;
-          console.log("Switched to animation", animKey);
+          console.log("Switched to animation:", animKey);
         }
         // If the same animation button is clicked, do nothing.
         else {
@@ -139,7 +145,7 @@
         }
       }
     });
-
+    
     // --- Animation Loop ---
     const clock = new THREE.Clock();
     function animate() {
@@ -149,7 +155,7 @@
       renderer.render(scene, camera);
     }
     animate();
-
+    
     // --- Handle Window Resize ---
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
