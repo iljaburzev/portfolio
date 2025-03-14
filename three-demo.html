@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Three.js Demo with Rotating Cube & Gradient</title>
+  <title>Three.js Demo with Two GLTF Cubes & Gradient</title>
   <style>
     body {
       margin: 0;
@@ -14,20 +14,15 @@
   </style>
 </head>
 <body>
+  test 01
   <!-- Load Three.js and GLTFLoader from your Cargo-hosted files -->
   <script src="https://files.cargocollective.com/c390363/three.min.js"></script>
   <script src="https://files.cargocollective.com/c390363/GLTFLoader.js"></script>
   <script>
     // --- Scene, Camera, Renderer ---
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
-    // Position camera so objects at z=6 are nicely visible.
-    camera.position.set(0, 0, 7);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 0, 8);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -43,7 +38,7 @@
         varying vec2 vUv;
         void main(){
           vUv = uv;
-          gl_Position = vec4( position, 1.0 );
+          gl_Position = vec4(position, 1.0);
         }
       `,
       fragmentShader: `
@@ -66,71 +61,72 @@
     bgQuad.renderOrder = -1;
     scene.add(bgQuad);
 
-    // --- Load the Rotating Cube GLTF Model ---
-    const loader = new THREE.GLTFLoader();
-    let rotatingCube; // Reference to the loaded model
-    loader.load(
-      'https://files.cargocollective.com/c390363/cube_rotate_03.gltf',
-      function(gltf) {
-        rotatingCube = gltf.scene;
-        // Set its initial position to (0,0,6)
-        rotatingCube.position.set(0, 0, 6);
-        scene.add(rotatingCube);
-        console.log("Rotating cube loaded successfully.");
-
-        // (Optional) If the GLTF model includes its own animations, you could set up an AnimationMixer here.
-        // For now, we'll just apply our own slow rotation and mouse-follow behavior.
-      },
-      undefined,
-      function(error) {
-        console.error("Error loading rotating cube:", error);
-      }
-    );
-
-    // --- Lighting ---
+    // --- Basic Lighting ---
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
     directionalLight.position.set(0, 1, 1);
     scene.add(directionalLight);
 
-    // --- Mouse Tracking ---
-    const mouse = new THREE.Vector2();
-    document.addEventListener("mousemove", (event) => {
-      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
-    });
+    // --- Load the Moving Cube (GLTF Model) ---
+    const loader = new THREE.GLTFLoader();
+    let movingCubeMixer;
+    const clock = new THREE.Clock();
+    let movingCube;
+    loader.load(
+      'https://files.cargocollective.com/c390363/cube_move_02.gltf',
+      function (gltf) {
+        movingCube = gltf.scene;
+        // Position the moving cube to the left.
+        movingCube.position.set(-1.5, 0, 6);
+        scene.add(movingCube);
+        console.log("Moving cube loaded successfully.");
 
-    // --- Function: Convert Mouse NDC to World Position at Fixed z (6) ---
-    function getMouseWorldPosition(zPlane) {
-      const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5);
-      vector.unproject(camera);
-      const dir = vector.sub(camera.position).normalize();
-      const distance = (zPlane - camera.position.z) / dir.z;
-      return camera.position.clone().add(dir.multiplyScalar(distance));
-    }
+        // If the model has animations, set up an AnimationMixer.
+        if (gltf.animations && gltf.animations.length > 0) {
+          movingCubeMixer = new THREE.AnimationMixer(movingCube);
+          const action = movingCubeMixer.clipAction(gltf.animations[0]);
+          action.play();
+        }
+      },
+      undefined,
+      function (error) {
+        console.error("Error loading moving cube:", error);
+      }
+    );
+
+    // --- Load the Rotating Cube (GLTF Model) ---
+    let rotatingCube;
+    loader.load(
+      'https://files.cargocollective.com/c390363/cube_rotate_03.gltf',
+      function (gltf) {
+        rotatingCube = gltf.scene;
+        // Position the rotating cube to the right.
+        rotatingCube.position.set(1.5, 0, 6);
+        scene.add(rotatingCube);
+        console.log("Rotating cube loaded successfully.");
+      },
+      undefined,
+      function (error) {
+        console.error("Error loading rotating cube:", error);
+      }
+    );
 
     // --- Animation Loop ---
-    const clock = new THREE.Clock();
     function animate() {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
 
-      // Update gradient background
+      // Update gradient background.
       bgMaterial.uniforms.uTime.value += delta;
 
-      // Update the rotating cube's behavior if loaded.
+      // Update moving cube animation if available.
+      if (movingCubeMixer) movingCubeMixer.update(delta);
+
+      // Slowly rotate the rotating cube.
       if (rotatingCube) {
-        // Slowly rotate the cube on its x and y axes.
         rotatingCube.rotation.x += 0.01;
         rotatingCube.rotation.y += 0.01;
-        // Get the mouse's world position on the plane at z = 6.
-        const targetPos = getMouseWorldPosition(6);
-        // Smoothly interpolate the cube's x and y toward the target position.
-        rotatingCube.position.x = THREE.MathUtils.lerp(rotatingCube.position.x, targetPos.x, 0.1);
-        rotatingCube.position.y = THREE.MathUtils.lerp(rotatingCube.position.y, targetPos.y, 0.1);
-        // Ensure z stays fixed.
-        rotatingCube.position.z = 6;
       }
 
       renderer.render(scene, camera);
