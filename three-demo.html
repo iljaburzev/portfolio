@@ -16,7 +16,7 @@
 </head>
 <body>
   <!-- Debug Label -->
-  <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">github 16</div>
+  <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">github 17</div>
   <script src="https://files.cargocollective.com/c390363/three.min.js"></script>
   <script src="https://files.cargocollective.com/c390363/GLTFLoader.js"></script>
   <script>
@@ -47,7 +47,7 @@
       console.error("Error loading main cube:", error);
     });
 
-    // --- Persistent Animation Actions ---
+    // --- Persistent Animation Actions (no autoplay) ---
     let actionAni1 = null, actionAni2 = null, currentAction = null;
     const transitionDuration = 0.5; // seconds
 
@@ -103,20 +103,22 @@
           console.warn("Requested animation not ready:", animKey);
           return;
         }
-        // If no animation is playing yet, start the new action.
+        // If no animation is playing yet, simply start the new action.
         if (!currentAction) {
-          newAction.reset().play();
+          newAction.play();
           currentAction = newAction;
           console.log("Started animation", animKey);
         }
         // If switching animations, cross-fade from current to new.
         else if (currentAction !== newAction) {
+          // Make sure the new action is playing.
+          newAction.play();
+          // Smoothly crossfade from the current action to the new one.
           currentAction.crossFadeTo(newAction, transitionDuration, false);
-          newAction.reset().play();
           currentAction = newAction;
           console.log("Switched to animation", animKey);
         }
-        // If the same button is clicked and that animation is already playing, do nothing.
+        // If the same animation is requested, do nothing.
         else {
           console.log("Animation already playing:", animKey);
         }
