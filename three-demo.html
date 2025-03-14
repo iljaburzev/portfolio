@@ -15,9 +15,8 @@
   </style>
 </head>
 <body>
-  
-  <!-- Optional text for debugging -->
-  <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">github 12</div>
+  <!-- Debugging label -->
+  <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">github 13</div>
   <script src="https://files.cargocollective.com/c390363/three.min.js"></script>
   <script src="https://files.cargocollective.com/c390363/GLTFLoader.js"></script>
   <script>
@@ -48,44 +47,76 @@
       console.error("Error loading main cube:", error);
     });
 
-    // --- Preload Animation Clips ---
-    const animations = {};
+    // --- Persistent Animation Actions ---
+    let actionAni1 = null, actionAni2 = null, currentAction = null;
+    const transitionDuration = 0.5; // seconds
+
+    // Load first animation and create its action.
     loader.load('https://files.cargocollective.com/c390363/MainCube_Ani_01.gltf', function(gltf) {
       if (gltf.animations.length > 0) {
-        animations.ani1 = gltf.animations[0];
+        // Wait for mixer to be defined before creating the action.
+        const createAction = () => {
+          actionAni1 = mixer.clipAction(gltf.animations[0]);
+          actionAni1.setLoop(THREE.LoopRepeat, Infinity);
+          actionAni1.play();
+          currentAction = actionAni1; // Set as default
+          console.log("Animation 1 action ready.");
+        };
+        if (mixer) {
+          createAction();
+        } else {
+          // Poll until mixer is available
+          const interval = setInterval(() => {
+            if (mixer) {
+              createAction();
+              clearInterval(interval);
+            }
+          }, 100);
+        }
       }
     }, undefined, function(error) {
       console.error("Error loading Animation 1:", error);
     });
 
+    // Load second animation and create its action.
     loader.load('https://files.cargocollective.com/c390363/MainCube_Ani_03.gltf', function(gltf) {
       if (gltf.animations.length > 0) {
-        animations.ani2 = gltf.animations[0];
+        const createAction = () => {
+          actionAni2 = mixer.clipAction(gltf.animations[0]);
+          actionAni2.setLoop(THREE.LoopRepeat, Infinity);
+          console.log("Animation 2 action ready.");
+        };
+        if (mixer) {
+          createAction();
+        } else {
+          const interval = setInterval(() => {
+            if (mixer) {
+              createAction();
+              clearInterval(interval);
+            }
+          }, 100);
+        }
       }
     }, undefined, function(error) {
       console.error("Error loading Animation 2:", error);
     });
 
-    // --- Smooth Transition Using crossFadeTo (Without reset on newAction) ---
-    let currentAction = null;
-    const transitionDuration = 0.5; // seconds
-
+    // --- Message Listener for Switching Animations ---
     window.addEventListener("message", function(event) {
       if (event.data && event.data.type === "playAnimation") {
         const animKey = event.data.animation;
-        if (animations[animKey] && mixer) {
-          const newAction = mixer.clipAction(animations[animKey]);
-          // If there's an active action, cross-fade to the new one
-          if (currentAction && currentAction !== newAction) {
-            // Cross-fade over the transitionDuration.
-            currentAction.crossFadeTo(newAction, transitionDuration, false);
-            newAction.play();
-          } else {
-            // If no current action, just play newAction from its current state.
-            newAction.play();
-          }
+        let newAction = null;
+        if (animKey === "ani1") {
+          newAction = actionAni1;
+        } else if (animKey === "ani2") {
+          newAction = actionAni2;
+        }
+        if (newAction && currentAction !== newAction) {
+          // Smoothly cross-fade from the current action to the new action.
+          currentAction.crossFadeTo(newAction, transitionDuration, false);
+          newAction.play();
           currentAction = newAction;
-          console.log("Playing animation with crossFadeTo:", animKey);
+          console.log("Transitioned to", animKey);
         }
       }
     });
