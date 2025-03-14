@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Three.js Demo with Two Cubes & Gradient</title>
+  <title>Three.js Demo with Rotating Cube & Gradient</title>
   <style>
     body {
       margin: 0;
@@ -18,22 +18,22 @@
   <script src="https://files.cargocollective.com/c390363/three.min.js"></script>
   <script src="https://files.cargocollective.com/c390363/GLTFLoader.js"></script>
   <script>
-    // Create the main scene, camera, and renderer.
+    // --- Scene, Camera, Renderer ---
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(
       75,
-      window.innerWidth/window.innerHeight,
+      window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
-    // Move camera back to provide room.
+    // Position camera so objects at z=6 are nicely visible.
     camera.position.set(0, 0, 7);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // --- Background: Soft morphing gradient ---
+    // --- Background: Soft Morphing Gradient ---
     const bgGeometry = new THREE.PlaneGeometry(2, 2);
     const bgMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -43,7 +43,7 @@
         varying vec2 vUv;
         void main(){
           vUv = uv;
-          gl_Position = vec4(position, 1.0);
+          gl_Position = vec4( position, 1.0 );
         }
       `,
       fragmentShader: `
@@ -66,59 +66,42 @@
     bgQuad.renderOrder = -1;
     scene.add(bgQuad);
 
-    // --- Load the first cube (moving cube) via GLTFLoader ---
+    // --- Load the Rotating Cube GLTF Model ---
     const loader = new THREE.GLTFLoader();
-    let mixer; // for animations on the moving cube
-    const clock = new THREE.Clock();
-
+    let rotatingCube; // Reference to the loaded model
     loader.load(
-      'https://files.cargocollective.com/c390363/cube_move_02.gltf',
-      function (gltf) {
-        const movingCube = gltf.scene;
-        movingCube.position.set(0, 0, 0);
-        scene.add(movingCube);
-        console.log("Moving cube loaded successfully.");
-        
-        if (gltf.animations && gltf.animations.length > 0) {
-          mixer = new THREE.AnimationMixer(movingCube);
-          const action = mixer.clipAction(gltf.animations[0]);
-          action.play();
-        }
+      'https://files.cargocollective.com/c390363/cube_rotate_03.gltf',
+      function(gltf) {
+        rotatingCube = gltf.scene;
+        // Set its initial position to (0,0,6)
+        rotatingCube.position.set(0, 0, 6);
+        scene.add(rotatingCube);
+        console.log("Rotating cube loaded successfully.");
+
+        // (Optional) If the GLTF model includes its own animations, you could set up an AnimationMixer here.
+        // For now, we'll just apply our own slow rotation and mouse-follow behavior.
       },
       undefined,
-      function (error) {
-        console.error("Error loading moving cube:", error);
+      function(error) {
+        console.error("Error loading rotating cube:", error);
       }
     );
 
-    // --- Create the second cube (rotating and following the mouse) ---
-    let rotatingCube;
-    (function createRotatingCube(){
-      const geometry = new THREE.BoxGeometry(1, 1, 1);
-      const material = new THREE.MeshStandardMaterial({ color: 0xff00ff });
-      rotatingCube = new THREE.Mesh(geometry, material);
-      // Scale down the cube.
-      rotatingCube.scale.set(0.5, 0.5, 0.5);
-      // Initially place it at z=6.
-      rotatingCube.position.set(0, 0, 6);
-      scene.add(rotatingCube);
-    })();
-
-    // --- Add basic lighting ---
+    // --- Lighting ---
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
     directionalLight.position.set(0, 1, 1);
     scene.add(directionalLight);
 
-    // --- Mouse tracking for rotating cube ---
+    // --- Mouse Tracking ---
     const mouse = new THREE.Vector2();
     document.addEventListener("mousemove", (event) => {
       mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
       mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
     });
 
-    // --- Function to get world position at fixed z (6) from mouse NDC ---
+    // --- Function: Convert Mouse NDC to World Position at Fixed z (6) ---
     function getMouseWorldPosition(zPlane) {
       const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5);
       vector.unproject(camera);
@@ -128,25 +111,25 @@
     }
 
     // --- Animation Loop ---
+    const clock = new THREE.Clock();
     function animate() {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
 
-      // Update the gradient background.
+      // Update gradient background
       bgMaterial.uniforms.uTime.value += delta;
 
-      // Update moving cube animation if available.
-      if (mixer) mixer.update(delta);
-
-      // Update the rotating cube: rotate and follow the mouse.
+      // Update the rotating cube's behavior if loaded.
       if (rotatingCube) {
+        // Slowly rotate the cube on its x and y axes.
         rotatingCube.rotation.x += 0.01;
         rotatingCube.rotation.y += 0.01;
-        // Get world position on the plane at z=6.
+        // Get the mouse's world position on the plane at z = 6.
         const targetPos = getMouseWorldPosition(6);
-        // Smoothly interpolate position (x,y) toward target. z remains fixed.
+        // Smoothly interpolate the cube's x and y toward the target position.
         rotatingCube.position.x = THREE.MathUtils.lerp(rotatingCube.position.x, targetPos.x, 0.1);
         rotatingCube.position.y = THREE.MathUtils.lerp(rotatingCube.position.y, targetPos.y, 0.1);
+        // Ensure z stays fixed.
         rotatingCube.position.z = 6;
       }
 
@@ -156,7 +139,7 @@
 
     // --- Handle Window Resize ---
     window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.aspect = window.innerWidth/window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
