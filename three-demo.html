@@ -9,6 +9,7 @@
   </style>
 </head>
 <body>
+  github 05
   <!-- Optional text for debugging -->
   <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">Main Cube Animation Demo</div>
   <script src="https://files.cargocollective.com/c390363/three.min.js"></script>
@@ -59,20 +60,27 @@
       console.error("Error loading Animation 2:", error);
     });
 
-    // --- Listen for Parent Messages to Switch Animations ---
+    // --- Unified Message Listener for Animation and Other Commands ---
+    let currentAction = null;
     window.addEventListener("message", function(event) {
-      if (event.data && event.data.type === "playAnimation") {
-        const animKey = event.data.animation;
-        if (animations[animKey] && mixer) {
-          mixer.stopAllAction();
-          const action = mixer.clipAction(animations[animKey]);
-          action.reset().play();
-          console.log("Playing animation:", animKey);
+      if (event.data) {
+        if (event.data.type === "playAnimation") {
+          const animKey = event.data.animation;
+          if (animations[animKey] && mixer) {
+            const newAction = mixer.clipAction(animations[animKey]);
+            if (currentAction && currentAction !== newAction) {
+              // Smooth cross-fade from current action to new action
+              currentAction.crossFadeTo(newAction, 0.5, true);
+            }
+            newAction.reset().play();
+            currentAction = newAction;
+            console.log("Playing animation:", animKey);
+          }
         }
-      }
-      // Optional: Handle toggle message for other effects
-      if (event.data && event.data.type === "toggleRotatingCube") {
-        console.log("Received toggleRotatingCube message.");
+        else if (event.data.type === "toggleRotatingCube") {
+          // Handle other message types if needed.
+          console.log("Received toggleRotatingCube message.");
+        }
       }
     });
 
