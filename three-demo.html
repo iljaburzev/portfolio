@@ -9,7 +9,7 @@
   </style>
 </head>
 <body>
-  github 06
+  github 07
   <!-- Optional text for debugging -->
   <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">Main Cube Animation Demo</div>
   <script src="https://files.cargocollective.com/c390363/three.min.js"></script>
@@ -62,24 +62,31 @@
 
     // --- Unified Message Listener for Animation and Other Commands ---
     let currentAction = null;
+    const transitionDuration = 0.5; // Adjust duration (in seconds) for smoothness
+    
     window.addEventListener("message", function(event) {
-      if (event.data) {
-        if (event.data.type === "playAnimation") {
-          const animKey = event.data.animation;
-          if (animations[animKey] && mixer) {
-            const newAction = mixer.clipAction(animations[animKey]);
-            if (currentAction && currentAction !== newAction) {
-              // Smooth cross-fade from current action to new action
-              currentAction.crossFadeTo(newAction, 0.5, true);
-            }
-            newAction.reset().play();
-            currentAction = newAction;
-            console.log("Playing animation:", animKey);
+      if (event.data && event.data.type === "playAnimation") {
+        const animKey = event.data.animation;
+        if (animations[animKey] && mixer) {
+          const newAction = mixer.clipAction(animations[animKey]);
+          
+          // If there's an active action, fade it out and fade in the new action
+          if (currentAction && currentAction !== newAction) {
+            currentAction.fadeOut(transitionDuration);
+            newAction.reset();
+            newAction.setEffectiveWeight(0);
+            newAction.play();
+            newAction.fadeIn(transitionDuration);
+          } else {
+            // No active action; just start the new action with fade in
+            newAction.reset();
+            newAction.setEffectiveWeight(0);
+            newAction.play();
+            newAction.fadeIn(transitionDuration);
           }
-        }
-        else if (event.data.type === "toggleRotatingCube") {
-          // Handle other message types if needed.
-          console.log("Received toggleRotatingCube message.");
+          
+          currentAction = newAction;
+          console.log("Playing animation:", animKey);
         }
       }
     });
