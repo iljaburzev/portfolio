@@ -2,19 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Three.js Demo with Communication - Test 03</title>
+  <title>Main Cube Animation Demo</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
   </style>
 </head>
 <body>
-  github 04
-  <!-- Load Three.js and GLTFLoader from your Cargo-hosted files -->
+  <!-- Optional text for debugging -->
+  <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">Main Cube Animation Demo</div>
   <script src="https://files.cargocollective.com/c390363/three.min.js"></script>
   <script src="https://files.cargocollective.com/c390363/GLTFLoader.js"></script>
   <script>
-    // --- Scene, Camera, Renderer ---
+    // --- Scene Setup ---
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     camera.position.set(0, 0, 8);
@@ -23,110 +23,72 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // --- Background: Soft Morphing Gradient ---
-    const bgGeometry = new THREE.PlaneGeometry(2, 2);
-    const bgMaterial = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0.0 } },
-      vertexShader: `
-        varying vec2 vUv;
-        void main(){
-          vUv = uv;
-          gl_Position = vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform float uTime;
-        varying vec2 vUv;
-        void main(){
-          vec3 colorA = vec3(0.2, 0.0, 0.8);
-          vec3 colorB = vec3(0.8, 0.0, 0.2);
-          float t = 0.5 + 0.5 * sin(uTime * 0.5);
-          vec3 baseColor = mix(colorA, colorB, t);
-          vec3 finalColor = mix(baseColor * 0.5, baseColor, vUv.y);
-          gl_FragColor = vec4(finalColor, 1.0);
-        }
-      `,
-      depthWrite: false,
-      depthTest: false,
-      side: THREE.DoubleSide
-    });
-    const bgQuad = new THREE.Mesh(bgGeometry, bgMaterial);
-    bgQuad.renderOrder = -1;
-    scene.add(bgQuad);
-
-    // --- Basic Lighting ---
+    // --- Lighting ---
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
     directionalLight.position.set(0, 1, 1);
     scene.add(directionalLight);
 
-    // --- Load the Moving Cube (GLTF Model) ---
+    // --- Main Cube & Animation Mixer ---
+    let mainCube, mixer;
     const loader = new THREE.GLTFLoader();
-    let movingCubeMixer;
-    const clock = new THREE.Clock();
-    loader.load(
-      'https://files.cargocollective.com/c390363/cube_move_02.gltf',
-      function (gltf) {
-        const movingCube = gltf.scene;
-        movingCube.position.set(-1.5, 0, 6);
-        scene.add(movingCube);
-        console.log("Moving cube loaded successfully.");
-        if (gltf.animations && gltf.animations.length > 0) {
-          movingCubeMixer = new THREE.AnimationMixer(movingCube);
-          const action = movingCubeMixer.clipAction(gltf.animations[0]);
-          action.play();
+    loader.load('https://files.cargocollective.com/c390363/MainCube_01.gltf', function(gltf) {
+      mainCube = gltf.scene;
+      scene.add(mainCube);
+      mixer = new THREE.AnimationMixer(mainCube);
+    }, undefined, function(error) {
+      console.error("Error loading main cube:", error);
+    });
+
+    // --- Preload Animation Clips ---
+    const animations = {};
+    loader.load('https://files.cargocollective.com/c390363/MainCube_Ani_01.gltf', function(gltf) {
+      if (gltf.animations.length > 0) {
+        animations.ani1 = gltf.animations[0];
+      }
+    }, undefined, function(error) {
+      console.error("Error loading Animation 1:", error);
+    });
+
+    loader.load('https://files.cargocollective.com/c390363/MainCube_Ani_02.gltf', function(gltf) {
+      if (gltf.animations.length > 0) {
+        animations.ani2 = gltf.animations[0];
+      }
+    }, undefined, function(error) {
+      console.error("Error loading Animation 2:", error);
+    });
+
+    // --- Listen for Parent Messages to Switch Animations ---
+    window.addEventListener("message", function(event) {
+      if (event.data && event.data.type === "playAnimation") {
+        const animKey = event.data.animation;
+        if (animations[animKey] && mixer) {
+          mixer.stopAllAction();
+          const action = mixer.clipAction(animations[animKey]);
+          action.reset().play();
+          console.log("Playing animation:", animKey);
         }
-      },
-      undefined,
-      function (error) {
-        console.error("Error loading moving cube:", error);
       }
-    );
-
-    // --- Load the Rotating Cube (GLTF Model) ---
-    let rotatingCube;
-    let rotatingCubePlaying = true;  // Variable to control play/pause.
-    loader.load(
-      'https://files.cargocollective.com/c390363/cube_rotate_03.gltf',
-      function (gltf) {
-        rotatingCube = gltf.scene;
-        rotatingCube.position.set(1.5, 0, 6);
-        scene.add(rotatingCube);
-        console.log("Rotating cube loaded successfully.");
-      },
-      undefined,
-      function (error) {
-        console.error("Error loading rotating cube:", error);
-      }
-    );
-
-    // --- Listen for Messages from Parent ---
-    window.addEventListener("message", (event) => {
-      // Optionally, verify event.origin here.
+      // Optional: Handle toggle message for other effects
       if (event.data && event.data.type === "toggleRotatingCube") {
-        rotatingCubePlaying = !rotatingCubePlaying;
-        console.log("Rotating cube toggled: " + (rotatingCubePlaying ? "Playing" : "Paused"));
+        console.log("Received toggleRotatingCube message.");
       }
     });
 
     // --- Animation Loop ---
+    const clock = new THREE.Clock();
     function animate() {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
-      bgMaterial.uniforms.uTime.value += delta;
-      if (movingCubeMixer) movingCubeMixer.update(delta);
-      if (rotatingCube && rotatingCubePlaying) {
-        rotatingCube.rotation.x += 0.01;
-        rotatingCube.rotation.y += 0.01;
-      }
+      if (mixer) mixer.update(delta);
       renderer.render(scene, camera);
     }
     animate();
 
     // --- Handle Window Resize ---
     window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth/window.innerHeight;
+      camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
