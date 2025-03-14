@@ -9,7 +9,7 @@
   </style>
 </head>
 <body>
-  github 07
+  github 08
   <!-- Optional text for debugging -->
   <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">Main Cube Animation Demo</div>
   <script src="https://files.cargocollective.com/c390363/three.min.js"></script>
@@ -65,31 +65,33 @@
     const transitionDuration = 0.5; // Adjust duration (in seconds) for smoothness
     
     window.addEventListener("message", function(event) {
-      if (event.data && event.data.type === "playAnimation") {
-        const animKey = event.data.animation;
-        if (animations[animKey] && mixer) {
-          const newAction = mixer.clipAction(animations[animKey]);
-          
-          // If there's an active action, fade it out and fade in the new action
-          if (currentAction && currentAction !== newAction) {
-            currentAction.fadeOut(transitionDuration);
-            newAction.reset();
-            newAction.setEffectiveWeight(0);
-            newAction.play();
-            newAction.fadeIn(transitionDuration);
-          } else {
-            // No active action; just start the new action with fade in
-            newAction.reset();
-            newAction.setEffectiveWeight(0);
-            newAction.play();
-            newAction.fadeIn(transitionDuration);
-          }
-          
-          currentAction = newAction;
-          console.log("Playing animation:", animKey);
+    console.log("Received message:", event.data);
+    if (event.data && event.data.type === "playAnimation") {
+      const animKey = event.data.animation;
+      if (animations[animKey] && mixer) {
+        console.log("Found animation:", animKey);
+        const newAction = mixer.clipAction(animations[animKey]);
+        if (currentAction && currentAction !== newAction) {
+          currentAction.fadeOut(transitionDuration);
+          // Try commenting out reset to see if it makes a difference:
+          newAction.reset();
+          newAction.setEffectiveWeight(0);
+          newAction.play();
+          newAction.fadeIn(transitionDuration);
+        } else {
+          newAction.reset();
+          newAction.setEffectiveWeight(0);
+          newAction.play();
+          newAction.fadeIn(transitionDuration);
         }
+        currentAction = newAction;
+        console.log("Playing animation:", animKey);
+      } else {
+        console.warn("Animation or mixer not ready:", animKey, animations, mixer);
       }
-    });
+    }
+  });
+
 
     // --- Animation Loop ---
     const clock = new THREE.Clock();
