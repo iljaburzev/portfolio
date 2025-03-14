@@ -20,8 +20,14 @@
   <script>
     // Create the main scene, camera, and renderer.
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    camera.position.z = 5;
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+    // Move the camera a bit further back
+    camera.position.z = 7;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -97,8 +103,10 @@
       const geometry = new THREE.BoxGeometry(1, 1, 1);
       const material = new THREE.MeshStandardMaterial({ color: 0xff00ff });
       rotatingCube = new THREE.Mesh(geometry, material);
-      // Set an initial position.
-      rotatingCube.position.set(2.5, 0, 0);
+      // Scale down the cube to make it smaller.
+      rotatingCube.scale.set(0.5, 0.5, 0.5);
+      // Set its initial position further away.
+      rotatingCube.position.set(3, 0, 0);
       scene.add(rotatingCube);
     })();
 
@@ -121,22 +129,20 @@
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
 
-      // Update the gradient background
+      // Update the gradient background's time uniform.
       bgMaterial.uniforms.uTime.value += delta;
 
-      // Update moving cube animation if available
+      // Update moving cube animation if available.
       if (mixer) mixer.update(delta);
 
-      // Update the rotating cube:
+      // Update the rotating cube: rotate and move toward mouse.
       if (rotatingCube) {
-        // Slowly rotate it
         rotatingCube.rotation.x += 0.01;
         rotatingCube.rotation.y += 0.01;
-        // Convert mouse position (NDC) to world coordinates at a fixed Z plane.
-        // Create a vector with z = 0.5 (middle of clip space) and unproject.
+        // Convert mouse position (NDC) to world coordinates.
         const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5);
         vector.unproject(camera);
-        // Optionally, smooth the movement using .lerp:
+        // Smooth the movement with linear interpolation.
         rotatingCube.position.lerp(vector, 0.1);
       }
 
