@@ -17,7 +17,7 @@
 <body>
   
   <!-- Optional text for debugging -->
-  <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">github 11</div>
+  <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">github 12</div>
   <script src="https://files.cargocollective.com/c390363/three.min.js"></script>
   <script src="https://files.cargocollective.com/c390363/GLTFLoader.js"></script>
   <script>
@@ -65,8 +65,8 @@
     }, undefined, function(error) {
       console.error("Error loading Animation 2:", error);
     });
-/*
-    // --- Smooth Transition Using Cross-Fade ---
+
+    // --- Smooth Transition Using crossFadeTo (Without reset on newAction) ---
     let currentAction = null;
     const transitionDuration = 0.5; // seconds
 
@@ -75,46 +75,20 @@
         const animKey = event.data.animation;
         if (animations[animKey] && mixer) {
           const newAction = mixer.clipAction(animations[animKey]);
-          // Use crossFadeTo if there's an already playing animation
+          // If there's an active action, cross-fade to the new one
           if (currentAction && currentAction !== newAction) {
+            // Cross-fade over the transitionDuration.
             currentAction.crossFadeTo(newAction, transitionDuration, false);
+            newAction.play();
+          } else {
+            // If no current action, just play newAction from its current state.
+            newAction.play();
           }
-          newAction.reset().play();
           currentAction = newAction;
           console.log("Playing animation with crossFadeTo:", animKey);
         }
       }
     });
-*/
-    // --- Alternative Smooth Transition Using FadeIn / FadeOut ---
-    // Uncomment the following block and comment out the above event listener block to try a fade-based transition.
-    
-    let currentAction = null;
-    const transitionDuration = 0.5; // seconds
-
-    window.addEventListener("message", function(event) {
-      if (event.data && event.data.type === "playAnimation") {
-        const animKey = event.data.animation;
-        if (animations[animKey] && mixer) {
-          const newAction = mixer.clipAction(animations[animKey]);
-          if (currentAction && currentAction !== newAction) {
-            currentAction.fadeOut(transitionDuration);
-            newAction.reset();
-            newAction.setEffectiveWeight(0);
-            newAction.play();
-            newAction.fadeIn(transitionDuration);
-          } else {
-            newAction.reset();
-            newAction.setEffectiveWeight(0);
-            newAction.play();
-            newAction.fadeIn(transitionDuration);
-          }
-          currentAction = newAction;
-          console.log("Playing animation with fadeIn/fadeOut:", animKey);
-        }
-      }
-    });
-    
 
     // --- Animation Loop ---
     const clock = new THREE.Clock();
