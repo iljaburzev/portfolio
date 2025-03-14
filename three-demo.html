@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Three.js Demo with Morphing Gradient Background</title>
+  <title>Three.js Demo with Two Cubes & Gradient</title>
   <style>
     body {
       margin: 0;
@@ -28,7 +28,6 @@
     document.body.appendChild(renderer.domElement);
 
     // --- Background: Soft morphing gradient ---
-    // Create a full-screen quad geometry. UV coordinates will range from 0 to 1.
     const bgGeometry = new THREE.PlaneGeometry(2, 2);
     const bgMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -51,11 +50,9 @@
 
           // Create a time-based factor that oscillates between 0 and 1.
           float t = 0.5 + 0.5 * sin(uTime * 0.5);
-          // Mix the two colors.
           vec3 baseColor = mix(colorA, colorB, t);
           
           // Add a vertical gradient effect based on the vUv.y coordinate.
-          // You can adjust the gradient intensity by modifying the mix below.
           vec3 finalColor = mix(baseColor * 0.5, baseColor, vUv.y);
           
           gl_FragColor = vec4(finalColor, 1.0);
@@ -65,27 +62,23 @@
       depthTest: false,
       side: THREE.DoubleSide
     });
-    // Create a mesh for the background quad.
     const bgQuad = new THREE.Mesh(bgGeometry, bgMaterial);
-    // Set renderOrder so it draws behind other objects.
     bgQuad.renderOrder = -1;
     scene.add(bgQuad);
 
-    // --- 3D Model: Load the moving cube via GLTFLoader ---
+    // --- Load the first cube (moving cube) via GLTFLoader ---
     const loader = new THREE.GLTFLoader();
-    let mixer;
+    let mixer; // for animations on the moving cube
     const clock = new THREE.Clock();
 
     loader.load(
       'https://files.cargocollective.com/c390363/cube_move_02.gltf',
       function (gltf) {
         const movingCube = gltf.scene;
-        // Position the cube (adjust as needed)
         movingCube.position.set(0, 0, 0);
         scene.add(movingCube);
         console.log("Moving cube loaded successfully.");
         
-        // If the model has animations, set up the AnimationMixer.
         if (gltf.animations && gltf.animations.length > 0) {
           mixer = new THREE.AnimationMixer(movingCube);
           const action = mixer.clipAction(gltf.animations[0]);
@@ -98,28 +91,62 @@
       }
     );
 
-    // --- Basic lighting so the model is better lit ---
+    // --- Create the second cube (rotating and following the mouse) ---
+    let rotatingCube;
+    (function createRotatingCube(){
+      const geometry = new THREE.BoxGeometry(1, 1, 1);
+      const material = new THREE.MeshStandardMaterial({ color: 0xff00ff });
+      rotatingCube = new THREE.Mesh(geometry, material);
+      // Set an initial position.
+      rotatingCube.position.set(2.5, 0, 0);
+      scene.add(rotatingCube);
+    })();
+
+    // --- Add basic lighting ---
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
     directionalLight.position.set(0, 1, 1);
     scene.add(directionalLight);
 
+    // --- Mouse tracking for rotating cube ---
+    const mouse = new THREE.Vector2();
+    document.addEventListener("mousemove", (event) => {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+    });
+
     // --- Animation Loop ---
     function animate() {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
-      // Update model animation if available.
-      if (mixer) mixer.update(delta);
-      // Update the gradient background's time uniform.
+
+      // Update the gradient background
       bgMaterial.uniforms.uTime.value += delta;
+
+      // Update moving cube animation if available
+      if (mixer) mixer.update(delta);
+
+      // Update the rotating cube:
+      if (rotatingCube) {
+        // Slowly rotate it
+        rotatingCube.rotation.x += 0.01;
+        rotatingCube.rotation.y += 0.01;
+        // Convert mouse position (NDC) to world coordinates at a fixed Z plane.
+        // Create a vector with z = 0.5 (middle of clip space) and unproject.
+        const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5);
+        vector.unproject(camera);
+        // Optionally, smooth the movement using .lerp:
+        rotatingCube.position.lerp(vector, 0.1);
+      }
+
       renderer.render(scene, camera);
     }
     animate();
 
     // --- Handle Window Resize ---
     window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth/window.innerHeight;
+      camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
