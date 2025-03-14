@@ -4,12 +4,18 @@
   <meta charset="UTF-8">
   <title>Main Cube Animation Demo</title>
   <style>
-    body { margin: 0; overflow: hidden; }
-    canvas { display: block; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #202123; /* Dark background */
+    }
+    canvas { 
+      display: block;
+    }
   </style>
 </head>
 <body>
-  github 09
+  github 10
   <!-- Optional text for debugging -->
   <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">Main Cube Animation Demo</div>
   <script src="https://files.cargocollective.com/c390363/three.min.js"></script>
@@ -17,7 +23,7 @@
   <script>
     // --- Scene Setup ---
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 0, 8);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -60,22 +66,55 @@
       console.error("Error loading Animation 2:", error);
     });
 
-    // --- Unified Message Listener for Animation and Other Commands ---
+    // --- Smooth Transition Using Cross-Fade ---
     let currentAction = null;
-    const transitionDuration = 0.5; // Adjust duration (in seconds) for smoothness
-    
-    window.addEventListener("message", function(event) {
-    if (event.data && event.data.type === "playAnimation") {
-      const animKey = event.data.animation;
-      if (animations[animKey] && mixer) {
-        const newAction = mixer.clipAction(animations[animKey]);
-        newAction.reset().play();
-        currentAction = newAction;
-        console.log("Playing animation:", animKey);
-      }
-    }
-  });
+    const transitionDuration = 0.5; // seconds
 
+    window.addEventListener("message", function(event) {
+      if (event.data && event.data.type === "playAnimation") {
+        const animKey = event.data.animation;
+        if (animations[animKey] && mixer) {
+          const newAction = mixer.clipAction(animations[animKey]);
+          // Use crossFadeTo if there's an already playing animation
+          if (currentAction && currentAction !== newAction) {
+            currentAction.crossFadeTo(newAction, transitionDuration, false);
+          }
+          newAction.reset().play();
+          currentAction = newAction;
+          console.log("Playing animation with crossFadeTo:", animKey);
+        }
+      }
+    });
+
+    // --- Alternative Smooth Transition Using FadeIn / FadeOut ---
+    // Uncomment the following block and comment out the above event listener block to try a fade-based transition.
+    /*
+    let currentAction = null;
+    const transitionDuration = 0.5; // seconds
+
+    window.addEventListener("message", function(event) {
+      if (event.data && event.data.type === "playAnimation") {
+        const animKey = event.data.animation;
+        if (animations[animKey] && mixer) {
+          const newAction = mixer.clipAction(animations[animKey]);
+          if (currentAction && currentAction !== newAction) {
+            currentAction.fadeOut(transitionDuration);
+            newAction.reset();
+            newAction.setEffectiveWeight(0);
+            newAction.play();
+            newAction.fadeIn(transitionDuration);
+          } else {
+            newAction.reset();
+            newAction.setEffectiveWeight(0);
+            newAction.play();
+            newAction.fadeIn(transitionDuration);
+          }
+          currentAction = newAction;
+          console.log("Playing animation with fadeIn/fadeOut:", animKey);
+        }
+      }
+    });
+    */
 
     // --- Animation Loop ---
     const clock = new THREE.Clock();
