@@ -2,31 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Three.js Demo with Two GLTF Cubes, Gradient & Zoom - Test 02</title>
+  <title>Three.js Demo with Communication - Test 03</title>
   <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-    }
-    canvas {
-      display: block;
-    }
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
   </style>
 </head>
 <body>
-  test 02
-  <!-- Load Three.js and GLTFLoader from your Cargo-hosted files -->
+  Test 03
+  <!-- You can leave any text you want here; it won't be visible if the canvas covers the screen -->
   <script src="https://files.cargocollective.com/c390363/three.min.js"></script>
   <script src="https://files.cargocollective.com/c390363/GLTFLoader.js"></script>
   <script>
-    // --- Scene, Camera, Renderer ---
+    // --- Basic Scene Setup ---
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
     camera.position.set(0, 0, 8);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -36,9 +26,7 @@
     // --- Background: Soft Morphing Gradient ---
     const bgGeometry = new THREE.PlaneGeometry(2, 2);
     const bgMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0.0 }
-      },
+      uniforms: { uTime: { value: 0.0 } },
       vertexShader: `
         varying vec2 vUv;
         void main(){
@@ -50,8 +38,8 @@
         uniform float uTime;
         varying vec2 vUv;
         void main(){
-          vec3 colorA = vec3(0.2, 0.0, 0.8);  // purple-ish
-          vec3 colorB = vec3(0.8, 0.0, 0.2);  // reddish
+          vec3 colorA = vec3(0.2, 0.0, 0.8);
+          vec3 colorB = vec3(0.8, 0.0, 0.2);
           float t = 0.5 + 0.5 * sin(uTime * 0.5);
           vec3 baseColor = mix(colorA, colorB, t);
           vec3 finalColor = mix(baseColor * 0.5, baseColor, vUv.y);
@@ -73,21 +61,17 @@
     directionalLight.position.set(0, 1, 1);
     scene.add(directionalLight);
 
-    // --- Load the Moving Cube (GLTF Model) ---
+    // --- Load a GLTF Model (example moving cube) ---
     const loader = new THREE.GLTFLoader();
     let movingCubeMixer;
     const clock = new THREE.Clock();
-    let movingCube;
     loader.load(
       'https://files.cargocollective.com/c390363/cube_move_02.gltf',
       function (gltf) {
-        movingCube = gltf.scene;
-        // Position the moving cube to the left.
+        const movingCube = gltf.scene;
         movingCube.position.set(-1.5, 0, 6);
         scene.add(movingCube);
         console.log("Moving cube loaded successfully.");
-
-        // If the model has animations, set up an AnimationMixer.
         if (gltf.animations && gltf.animations.length > 0) {
           movingCubeMixer = new THREE.AnimationMixer(movingCube);
           const action = movingCubeMixer.clipAction(gltf.animations[0]);
@@ -100,13 +84,12 @@
       }
     );
 
-    // --- Load the Rotating Cube (GLTF Model) ---
+    // --- Load another GLTF Model (example rotating cube) ---
     let rotatingCube;
     loader.load(
       'https://files.cargocollective.com/c390363/cube_rotate_03.gltf',
       function (gltf) {
         rotatingCube = gltf.scene;
-        // Position the rotating cube to the right.
         rotatingCube.position.set(1.5, 0, 6);
         scene.add(rotatingCube);
         console.log("Rotating cube loaded successfully.");
@@ -117,32 +100,31 @@
       }
     );
 
-    // --- Zoom Function: Adjust Camera on Mouse Wheel ---
-    document.addEventListener('wheel', (event) => {
-      // Adjust camera's z position based on wheel delta.
-      // Positive deltaY zooms out, negative zooms in.
-      camera.position.z += event.deltaY * 0.01;
-      // Optionally clamp camera.position.z to avoid extreme zoom.
-      camera.position.z = Math.max(4, Math.min(20, camera.position.z));
+    // --- Listen for Messages from Parent ---
+    window.addEventListener("message", (event) => {
+      // Optionally, check event.origin if you want to restrict messages.
+      if (event.data && event.data.type === "createCube") {
+        console.log("Received message to create a new cube.");
+        // Create a new cube.
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const material = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff });
+        const newCube = new THREE.Mesh(geometry, material);
+        // Position the new cube at a chosen location (here, center at z = 6).
+        newCube.position.set(0, 0, 6);
+        scene.add(newCube);
+      }
     });
 
     // --- Animation Loop ---
     function animate() {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
-
-      // Update gradient background.
       bgMaterial.uniforms.uTime.value += delta;
-
-      // Update moving cube animation if available.
       if (movingCubeMixer) movingCubeMixer.update(delta);
-
-      // Slowly rotate the rotating cube.
       if (rotatingCube) {
         rotatingCube.rotation.x += 0.01;
         rotatingCube.rotation.y += 0.01;
       }
-
       renderer.render(scene, camera);
     }
     animate();
