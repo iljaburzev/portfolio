@@ -16,7 +16,7 @@
 </head>
 <body>
   <!-- Debugging label -->
-  <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">github 14</div>
+  <div style="position:absolute;top:10px;left:10px;z-index:10;color:white;">github 15</div>
   <script src="https://files.cargocollective.com/c390363/three.min.js"></script>
   <script src="https://files.cargocollective.com/c390363/GLTFLoader.js"></script>
   <script>
@@ -111,15 +111,24 @@
         } else if (animKey === "ani2") {
           newAction = actionAni2;
         }
-        if (newAction && currentAction !== newAction) {
-          // Smoothly cross-fade from the current action to the new action.
-          currentAction.crossFadeTo(newAction, transitionDuration, false);
+        if (!newAction) return;  // exit if action is not available
+    
+        // Only trigger a crossfade if the new action is different
+        if (currentAction !== newAction) {
+          if (currentAction) {
+            currentAction.crossFadeTo(newAction, transitionDuration, false);
+          }
           newAction.play();
           currentAction = newAction;
           console.log("Transitioned to", animKey);
+        } else {
+          // Already playing this animation, so just ensure it is playing
+          newAction.play();
+          console.log("Already playing", animKey);
         }
       }
     });
+
 
     // --- Animation Loop ---
     const clock = new THREE.Clock();
